@@ -1,15 +1,14 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Car, UserCircle, CalendarDays } from "lucide-react";
 import Link from "next/link";
-// Removed Image import from 'next/image' as it's no longer used
 
 export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center text-center space-y-12">
       <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-br from-primary via-primary/80 to-background rounded-lg shadow-2xl">
         <div className="container px-4 md:px-6">
-          {/* Changed grid to a flex column centered layout */}
           <div className="flex flex-col items-center justify-center space-y-6 text-center">
             <div className="space-y-2">
               <h1 className="text-4xl font-headline font-bold tracking-tighter sm:text-5xl xl:text-6xl/none text-primary-foreground">
@@ -26,21 +25,15 @@ export default function Home() {
                 </Button>
               </Link>
               <Link href="/my-trips" passHref>
-                <Button variant="outline" size="lg" className="text-lg px-8 py-6 border-primary-foreground/50 text-primary-foreground hover:bg-primary-foreground/10 shadow-md transition-transform hover:scale-105">
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="text-lg px-8 py-6 text-primary border-primary hover:bg-primary/10 dark:text-primary-foreground dark:border-primary-foreground/50 dark:hover:bg-primary-foreground/10 shadow-md transition-transform hover:scale-105"
+                >
                   <CalendarDays className="mr-2 h-5 w-5" /> My Trips
                 </Button>
               </Link>
             </div>
-            {/* Removed Image component
-             <Image
-                src="https://placehold.co/600x400.png"
-                alt="Luxury Car"
-                data-ai-hint="luxury car night"
-                width={600}
-                height={400}
-                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:order-last lg:aspect-square shadow-lg"
-              />
-            */}
           </div>
         </div>
       </section>
