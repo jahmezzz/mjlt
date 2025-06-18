@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -107,7 +108,7 @@ export default function BookingForm() {
               <Controller
                 name="fullName"
                 control={control}
-                render={({ field }) => <Input id="fullName" {...field} placeholder="e.g., James Bond" aria-invalid={errors.fullName ? "true" : "false"} />}
+                render={({ field }) => <Input id="fullName" {...field} value={field.value || ''} placeholder="e.g., James Bond" aria-invalid={errors.fullName ? "true" : "false"} />}
               />
               {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName.message}</p>}
             </div>
@@ -166,7 +167,7 @@ export default function BookingForm() {
               <Controller
                 name="contactDetails"
                 control={control}
-                render={({ field }) => <Input id="contactDetails" {...field} placeholder="e.g., user@example.com or +1234567890" aria-invalid={errors.contactDetails ? "true" : "false"} />}
+                render={({ field }) => <Input id="contactDetails" {...field} value={field.value || ''} placeholder="e.g., user@example.com or +1234567890" aria-invalid={errors.contactDetails ? "true" : "false"} />}
               />
               {errors.contactDetails && <p className="text-sm text-destructive mt-1">{errors.contactDetails.message}</p>}
             </div>
@@ -178,7 +179,7 @@ export default function BookingForm() {
                   <Controller
                     name="guardianName"
                     control={control}
-                    render={({ field }) => <Input id="guardianName" {...field} placeholder="Guardian's Name" aria-invalid={errors.guardianName ? "true" : "false"} />}
+                    render={({ field }) => <Input id="guardianName" {...field} value={field.value || ''} placeholder="Guardian's Name" aria-invalid={errors.guardianName ? "true" : "false"} />}
                   />
                   {errors.guardianName && <p className="text-sm text-destructive mt-1">{errors.guardianName.message}</p>}
                 </div>
@@ -187,7 +188,7 @@ export default function BookingForm() {
                   <Controller
                     name="guardianContact"
                     control={control}
-                    render={({ field }) => <Input id="guardianContact" {...field} placeholder="Guardian's Contact" aria-invalid={errors.guardianContact ? "true" : "false"} />}
+                    render={({ field }) => <Input id="guardianContact" {...field} value={field.value || ''} placeholder="Guardian's Contact" aria-invalid={errors.guardianContact ? "true" : "false"} />}
                   />
                   {errors.guardianContact && <p className="text-sm text-destructive mt-1">{errors.guardianContact.message}</p>}
                 </div>
@@ -204,7 +205,7 @@ export default function BookingForm() {
               <Controller
                 name="destination"
                 control={control}
-                render={({ field }) => <Input id="destination" {...field} placeholder="e.g., City Airport" aria-invalid={errors.destination ? "true" : "false"} />}
+                render={({ field }) => <Input id="destination" {...field} value={field.value || ''} placeholder="e.g., City Airport" aria-invalid={errors.destination ? "true" : "false"} />}
               />
               {errors.destination && <p className="text-sm text-destructive mt-1">{errors.destination.message}</p>}
             </div>
@@ -275,7 +276,7 @@ export default function BookingForm() {
               <Controller
                 name="allergiesOrRequests"
                 control={control}
-                render={({ field }) => <Textarea id="allergiesOrRequests" {...field} placeholder="e.g., Peanut allergy, require child seat" rows={4} />}
+                render={({ field }) => <Textarea id="allergiesOrRequests" {...field} value={field.value || ''} placeholder="e.g., Peanut allergy, require child seat" rows={4} />}
               />
               {errors.allergiesOrRequests && <p className="text-sm text-destructive mt-1">{errors.allergiesOrRequests.message}</p>}
             </div>
@@ -327,3 +328,5 @@ export default function BookingForm() {
     </Card>
   );
 }
+
+    
