@@ -50,7 +50,7 @@ export default function BookingForm() {
   const { control, handleSubmit, formState: { errors }, watch, trigger, getValues, reset } = useForm<ValidationSchema>({
     resolver: zodResolver(currentSchema),
     defaultValues: formData,
-    mode: "onChange",
+    mode: "onChange", // "onBlur" or "onChange" are good for UX
   });
 
   const watchedDob = watch("dateOfBirth");
@@ -60,19 +60,21 @@ export default function BookingForm() {
       const calculatedAge = calculateAge(watchedDob);
       setAge(calculatedAge);
       setIsUnderAge(calculatedAge < MIN_AGE);
+    } else {
+      setAge(null);
+      setIsUnderAge(false);
     }
   }, [watchedDob]);
 
   useEffect(() => {
-    reset(formData); // Keep form in sync with context data when steps change
+    reset(formData); 
   }, [formData, reset, currentStep]);
 
   const processStep: SubmitHandler<BookingFormData> = (data) => {
     updateFormData(data);
-    if (currentStep < totalSteps -1) { // totalSteps - 1 because last step is review
+    if (currentStep < totalSteps -1) { 
       setCurrentStep(currentStep + 1);
     } else {
-      // Navigate to confirmation page
       router.push('/booking/confirmation');
     }
   };
@@ -80,12 +82,16 @@ export default function BookingForm() {
   const handleNext = async () => {
     const fieldsToValidate = BOOKING_FORM_STEPS[currentStep - 1].fields;
     const isValid = await trigger(fieldsToValidate as (keyof ValidationSchema)[]);
+    
     if (isValid) {
-      handleSubmit(processStep)();
+      const currentValues = getValues();
+      // Ensure that processStep receives data that matches BookingFormData structure
+      // by explicitly casting. This assumes ValidationSchema is a superset or compatible.
+      processStep(currentValues as BookingFormData); 
     } else {
         toast({
           title: "Validation Error",
-          description: "Please correct the errors in the form.",
+          description: "Please correct the errors in the form before proceeding.",
           variant: "destructive",
         });
     }
@@ -93,7 +99,7 @@ export default function BookingForm() {
 
   const handlePrevious = () => {
     const currentValues = getValues();
-    updateFormData(currentValues);
+    updateFormData(currentValues); // Save current step's (potentially partially filled) data
     setCurrentStep(currentStep - 1);
   };
 
@@ -251,7 +257,7 @@ export default function BookingForm() {
                 name="preferredVehicle"
                 control={control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} defaultValue={field.value} aria-invalid={errors.preferredVehicle ? "true" : "false"}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value || ''} aria-invalid={errors.preferredVehicle ? "true" : "false"}>
                     <SelectTrigger id="preferredVehicle">
                       <SelectValue placeholder="Select vehicle type" />
                     </SelectTrigger>
@@ -294,6 +300,22 @@ export default function BookingForm() {
     }
   };
 
+  // The form's onSubmit is primarily a fallback if something triggers a native form submission.
+  // The step navigation is handled by the handleNext/handlePrevious button onClick events.
+  const onFormSubmit: SubmitHandler<ValidationSchema> = (data) => {
+    // This function would be called if the form was submitted traditionally (e.g. enter key)
+    // AND if all fields in currentSchema are valid.
+    // For the multi-step, we primarily rely on handleNext.
+    // If we are on the last input step, this could also trigger navigation.
+    if (currentStep === totalSteps - 1) {
+        processStep(data as BookingFormData);
+    } else {
+        // Or, if not last step, just treat as a "next" action.
+        handleNext();
+    }
+  };
+
+
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-2xl">
       <CardHeader className="p-6 bg-muted/30">
@@ -303,7 +325,7 @@ export default function BookingForm() {
         <div className="w-full bg-muted rounded-full h-2.5 mt-4">
           <div 
             className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out" 
-            style={{ width: `${(currentStep / (totalSteps-1)) * 100}%` }} // totalSteps-1 for progress bar as review is not a "progress" step
+            style={{ width: `${(currentStep / (totalSteps-1)) * 100}%` }}
             aria-valuenow={currentStep}
             aria-valuemin={1}
             aria-valuemax={totalSteps-1}
@@ -313,7 +335,7 @@ export default function BookingForm() {
         </div>
       </CardHeader>
       <CardContent className="p-6 md:p-8">
-        <form onSubmit={handleSubmit(processStep)} className="space-y-8">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8">
           {renderStepContent()}
           <div className="flex justify-between pt-6 border-t mt-8">
             <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 1} className="shadow-sm">
@@ -328,5 +350,3 @@ export default function BookingForm() {
     </Card>
   );
 }
-
-    
