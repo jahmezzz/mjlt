@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarIcon, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { cn, calculateAge, formatDate } from '@/lib/utils';
 import { VEHICLE_TYPES, MIN_AGE, BOOKING_FORM_STEPS } from '@/lib/constants';
