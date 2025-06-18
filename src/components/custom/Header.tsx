@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu, Car } from 'lucide-react';
+import { Menu } from 'lucide-react'; // Removed Car import
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -40,7 +40,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-20 items-center justify-between px-4">
         <Link href="/" className="flex items-center space-x-2" aria-label="MJLT Home">
-          <Car className="h-10 w-10 text-primary" />
+          {/* <Car className="h-10 w-10 text-primary" /> Removed Car icon */}
           <span className="text-3xl font-headline font-bold text-primary">MJLT</span>
         </Link>
         

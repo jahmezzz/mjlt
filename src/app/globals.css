@@ -41,38 +41,38 @@
   }
 
   .dark {
-    --background: 206 17% 26%; /* Charcoal gray - Dark mode background */
-    --foreground: 210 40% 98%; /* Dark mode foreground */
-    --card: 206 17% 22%;
-    --card-foreground: 210 40% 98%;
-    --popover: 206 17% 18%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 240 65% 67%; /* Lighter primary for dark mode */
-    --primary-foreground: 240 65% 15%; /* Darker text on lighter primary */
-    --secondary: 210 13% 35%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 210 13% 30%;
-    --muted-foreground: 210 20% 65%;
-    --accent: 210 13% 59%; /* Lighter accent for dark mode */
-    --accent-foreground: 210 40% 98%;
+    --background: 0 0% 4%; /* Very dark grey/black */
+    --foreground: 0 0% 98%; 
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 240 65% 67%; 
+    --primary-foreground: 240 65% 15%; 
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 210 20% 65%; /* Kept original, adjust if needed */
+    --accent: 210 13% 59%; 
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 70% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 210 13% 35%;
-    --input: 210 13% 30%;
-    --ring: 240 65% 77%; /* Lighter ring for focus */
+    --border: 0 0% 12%;
+    --input: 0 0% 10%;
+    --ring: 240 65% 77%; 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
 
-    --sidebar-background: 206 17% 22%;
-    --sidebar-foreground: 210 40% 98%;
+    --sidebar-background: 0 0% 7%;
+    --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 240 65% 67%;
     --sidebar-primary-foreground: 240 65% 15%;
     --sidebar-accent: 210 13% 59%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 210 13% 35%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 0 0% 11%;
     --sidebar-ring: 240 65% 77%;
   }
 }
