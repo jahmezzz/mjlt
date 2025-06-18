@@ -1,9 +1,11 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/custom/ThemeProvider';
 import Header from '@/components/custom/Header';
 import Footer from '@/components/custom/Footer';
 import { Toaster } from '@/components/ui/toaster';
+import { AuthProvider } from '@/app/auth/AuthContext';
 
 export const metadata: Metadata = {
   title: 'MJLT - Mr James Luxury Transport',
@@ -30,12 +32,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <Header />
-          <main className="flex-grow container mx-auto px-4 py-8 page-transition">
-            {children}
-          </main>
-          <Footer />
-          <Toaster />
+          <AuthProvider>
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8 page-transition">
+              {children}
+            </main>
+            <Footer />
+            <Toaster />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

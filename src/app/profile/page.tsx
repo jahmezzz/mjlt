@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -10,59 +11,81 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, UserCircle, Loader2, Edit3, Save } from 'lucide-react';
+import { CalendarIcon, UserCircle, Loader2, Edit3, Save, ShieldAlert } from 'lucide-react';
 import { cn, calculateAge, formatDate } from '@/lib/utils';
 import PersonalizedSettings from '@/components/custom/PersonalizedSettings';
-import type { UserProfile as UserProfileType } from '@/lib/types'; // Renamed to avoid conflict
-import { getUserProfileAction, updateUserProfileAction } from '@/lib/actions';
+import type { UserProfile as UserProfileType } from '@/lib/types'; 
+import { updateUserProfileAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { PersonalizeBookingSettingsOutput } from '@/ai/flows/personalize-booking-settings';
+import { useAuth } from '@/app/auth/AuthContext';
+import { useRouter } from 'next/navigation';
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
-  dateOfBirth: z.string().refine(val => new Date(val) < new Date(), "Date of birth must be in the past."),
-  contactDetails: z.string().min(5, "Contact details are required."), // Add email/phone validation if needed
+  // Date of birth can be null initially, then required if user tries to set it.
+  dateOfBirth: z.string().refine(val => val === "" || (new Date(val) < new Date()), "Date of birth must be in the past if provided.")
+                          .refine(val => val === "" || !isNaN(Date.parse(val)), "Invalid date format."),
+  contactDetails: z.string().min(5, "Contact details are required."), 
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
-  const [userProfile, setUserProfile] = useState<UserProfileType | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { currentUser, dbUserProfile, loading: authLoading, fetchDbUserProfile } = useAuth();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true); // For local page loading, distinct from authLoading
   const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
   const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: '',
+      dateOfBirth: '',
+      contactDetails: '',
+    }
   });
 
   useEffect(() => {
-    async function fetchProfile() {
-      setIsLoading(true);
-      try {
-        // Assuming a mock userId for now
-        const result = await getUserProfileAction("mockUserId");
-        if (result.success && result.profile) {
-          setUserProfile(result.profile as UserProfileType);
-          reset(result.profile as ProfileFormData); // Set form default values
-        } else {
-          toast({ title: "Error", description: result.message || "Failed to load profile.", variant: "destructive" });
-        }
-      } catch (err) {
-        toast({ title: "Error", description: "An unexpected error occurred while loading profile.", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
-      }
+    if (!authLoading && !currentUser) {
+      router.replace('/login');
+    } else if (currentUser && dbUserProfile) {
+      const profileToSet = {
+        fullName: dbUserProfile.fullName || '',
+        dateOfBirth: dbUserProfile.dateOfBirth || '', // Ensure it's an empty string if null/undefined
+        contactDetails: dbUserProfile.contactDetails || '',
+      };
+      reset(profileToSet);
+      setIsLoading(false);
+    } else if (currentUser && !dbUserProfile && !authLoading) {
+      // This case might indicate a delay or issue in fetching dbUserProfile
+      // Potentially trigger a re-fetch or show a specific message
+      setIsLoading(true); // Keep loading until dbUserProfile is available or confirmed unavailable
+      fetchDbUserProfile(currentUser.uid); // Attempt to refetch
     }
-    fetchProfile();
-  }, [reset, toast]);
+     else if (authLoading) {
+      setIsLoading(true);
+    }
+  }, [currentUser, dbUserProfile, authLoading, reset, router, fetchDbUserProfile]);
 
   const onSubmit: SubmitHandler<ProfileFormData> = async (data) => {
+    if (!currentUser) {
+      toast({ title: "Authentication Error", description: "You are not logged in.", variant: "destructive" });
+      return;
+    }
     try {
-      const result = await updateUserProfileAction("mockUserId", data);
+      const result = await updateUserProfileAction(currentUser.uid, data);
       if (result.success && result.profile) {
-        setUserProfile(result.profile as UserProfileType);
-        reset(result.profile as ProfileFormData);
+        // The dbUserProfile in AuthContext should ideally be updated by the AuthProvider itself
+        // after a successful update. For now, we'll just reset the form with the returned profile.
+        const updatedFormValues = {
+            fullName: result.profile.fullName || '',
+            dateOfBirth: result.profile.dateOfBirth || '',
+            contactDetails: result.profile.contactDetails || '',
+        };
+        reset(updatedFormValues);
+        await fetchDbUserProfile(currentUser.uid); // Re-fetch to update context
         setIsEditing(false);
         toast({ title: "Profile Updated", description: "Your profile has been successfully updated.", className: "bg-green-500 text-white" });
       } else {
@@ -73,21 +96,26 @@ export default function ProfilePage() {
     }
   };
   
-  const handlePreferencesSaved = (newPreferences: PersonalizeBookingSettingsOutput) => {
-    if(userProfile) {
-        const updatedProfile = {
-            ...userProfile,
+  const handlePreferencesSaved = async (newPreferences: PersonalizeBookingSettingsOutput) => {
+    if(currentUser && dbUserProfile) {
+        // Optimistically update local form state, AuthContext will update from DB
+        const updatedProfileData = {
+            ...dbUserProfile, // current full profile from context
             preferredVehicleType: newPreferences.preferredVehicleType,
             preferredTemperature: newPreferences.preferredTemperature,
             preferredMusicGenre: newPreferences.preferredMusicGenre,
         };
-        setUserProfile(updatedProfile);
-        reset(updatedProfile as ProfileFormData); // Update form if these fields are part of it
+        // We only reset the fields part of the form
+        reset({
+            fullName: updatedProfileData.fullName || '',
+            dateOfBirth: updatedProfileData.dateOfBirth || '',
+            contactDetails: updatedProfileData.contactDetails || '',
+        });
+        await fetchDbUserProfile(currentUser.uid); // This will update dbUserProfile in context
     }
   };
 
-
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -96,15 +124,18 @@ export default function ProfilePage() {
     );
   }
 
-  if (!userProfile) {
+  if (!currentUser || !dbUserProfile) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <UserCircle className="h-16 w-16 text-destructive mb-4" />
-        <h2 className="text-2xl font-headline font-semibold text-destructive mb-2">Profile Not Found</h2>
-        <p className="text-lg font-body text-muted-foreground">We couldn&apos;t find your profile. Please try again later.</p>
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h2 className="text-2xl font-headline font-semibold text-destructive mb-2">Profile Access Error</h2>
+        <p className="text-lg font-body text-muted-foreground">We couldn&apos;t load your profile. Please try logging in again.</p>
+        <Button onClick={() => router.push('/login')} className="mt-4">Go to Login</Button>
       </div>
     );
   }
+  
+  const currentAge = dbUserProfile.dateOfBirth ? calculateAge(dbUserProfile.dateOfBirth) : null;
 
   return (
     <div className="container mx-auto py-8 space-y-12">
@@ -129,7 +160,7 @@ export default function ProfilePage() {
               <Controller
                 name="fullName"
                 control={control}
-                render={({ field }) => <Input id="fullName" {...field} readOnly={!isEditing} className={!isEditing ? "border-transparent bg-transparent px-0 shadow-none" : ""} />}
+                render={({ field }) => <Input id="fullName" {...field} readOnly={!isEditing} className={!isEditing ? "border-transparent bg-transparent px-0 shadow-none dark:border-transparent dark:bg-transparent" : ""} />}
               />
               {errors.fullName && <p className="text-sm text-destructive mt-1">{errors.fullName.message}</p>}
             </div>
@@ -165,10 +196,10 @@ export default function ProfilePage() {
                   )}
                 />
               ) : (
-                 <Input id="dateOfBirth" value={formatDate(userProfile.dateOfBirth)} readOnly className="border-transparent bg-transparent px-0 shadow-none" />
+                 <Input id="dateOfBirth" value={dbUserProfile.dateOfBirth ? formatDate(dbUserProfile.dateOfBirth) : 'N/A'} readOnly className="border-transparent bg-transparent px-0 shadow-none dark:border-transparent dark:bg-transparent" />
               )}
               {errors.dateOfBirth && <p className="text-sm text-destructive mt-1">{errors.dateOfBirth.message}</p>}
-              {userProfile.dateOfBirth && <p className="text-sm text-muted-foreground mt-1">Age: {calculateAge(userProfile.dateOfBirth)}</p>}
+              {currentAge !== null && <p className="text-sm text-muted-foreground mt-1">Age: {currentAge}</p>}
             </div>
 
             <div>
@@ -176,14 +207,26 @@ export default function ProfilePage() {
               <Controller
                 name="contactDetails"
                 control={control}
-                render={({ field }) => <Input id="contactDetails" {...field} readOnly={!isEditing}  className={!isEditing ? "border-transparent bg-transparent px-0 shadow-none" : ""} />}
+                render={({ field }) => <Input id="contactDetails" {...field} readOnly={!isEditing}  className={!isEditing ? "border-transparent bg-transparent px-0 shadow-none dark:border-transparent dark:bg-transparent" : ""} />}
               />
               {errors.contactDetails && <p className="text-sm text-destructive mt-1">{errors.contactDetails.message}</p>}
+            </div>
+             <div>
+                <Label className="font-semibold">Email (from Login)</Label>
+                <Input value={currentUser.email || 'N/A'} readOnly className="border-transparent bg-transparent px-0 shadow-none dark:border-transparent dark:bg-transparent" />
             </div>
           </CardContent>
           {isEditing && (
             <CardFooter className="p-6 flex justify-end space-x-3">
-              <Button type="button" variant="outline" onClick={() => { setIsEditing(false); reset(userProfile as ProfileFormData); }} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => { 
+                  setIsEditing(false); 
+                  reset({
+                    fullName: dbUserProfile.fullName || '',
+                    dateOfBirth: dbUserProfile.dateOfBirth || '',
+                    contactDetails: dbUserProfile.contactDetails || '',
+                  }); 
+                }} 
+                disabled={isSubmitting}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90">
@@ -196,11 +239,11 @@ export default function ProfilePage() {
       </Card>
 
       <PersonalizedSettings 
-        userId="mockUserId" 
+        userId={currentUser.uid} 
         currentPreferences={{
-            preferredVehicleType: userProfile.preferredVehicleType,
-            preferredTemperature: userProfile.preferredTemperature,
-            preferredMusicGenre: userProfile.preferredMusicGenre,
+            preferredVehicleType: dbUserProfile.preferredVehicleType,
+            preferredTemperature: dbUserProfile.preferredTemperature,
+            preferredMusicGenre: dbUserProfile.preferredMusicGenre,
         }}
         onPreferencesSaved={handlePreferencesSaved}
       />

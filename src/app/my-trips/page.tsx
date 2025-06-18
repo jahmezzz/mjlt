@@ -1,41 +1,57 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
 import TripCard from '@/components/custom/TripCard';
 import type { Booking } from '@/lib/types';
 import { getMyTripsAction } from '@/lib/actions';
-import { Loader2, TicketX } from 'lucide-react';
+import { Loader2, TicketX, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useAuth } from '@/app/auth/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function MyTripsPage() {
+  const { currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [trips, setTrips] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!authLoading && !currentUser) {
+      router.replace('/login');
+      return;
+    }
+
     async function fetchTrips() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // Assuming a mock userId for now
-        const result = await getMyTripsAction("mockUserId");
-        if (result.success && result.bookings) {
-          setTrips(result.bookings as Booking[]); // Cast as Booking[]
-        } else {
-          setError(result.message || "Failed to fetch trips.");
+      if (currentUser) {
+        setIsLoading(true);
+        setError(null);
+        try {
+          const result = await getMyTripsAction(currentUser.uid);
+          if (result.success && result.bookings) {
+            setTrips(result.bookings as Booking[]);
+          } else {
+            setError(result.message || "Failed to fetch trips.");
+          }
+        } catch (err) {
+          console.error("Fetch trips error:", err);
+          setError(err instanceof Error ? err.message : "An unexpected error occurred.");
+        } finally {
+          setIsLoading(false);
         }
-      } catch (err) {
-        console.error("Fetch trips error:", err);
-        setError(err instanceof Error ? err.message : "An unexpected error occurred.");
-      } finally {
+      } else if (!authLoading) {
+        // Not logged in and auth is not loading anymore
         setIsLoading(false);
       }
     }
-    fetchTrips();
-  }, []);
+    
+    if(!authLoading) fetchTrips();
 
-  if (isLoading) {
+  }, [currentUser, authLoading, router]);
+
+  if (authLoading || (isLoading && currentUser)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -43,6 +59,20 @@ export default function MyTripsPage() {
       </div>
     );
   }
+  
+  if (!currentUser && !authLoading) {
+     return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h2 className="text-2xl font-headline font-semibold text-destructive mb-2">Access Denied</h2>
+        <p className="text-lg font-body text-muted-foreground mb-6">Please log in to view your trips.</p>
+        <Link href="/login" passHref>
+          <Button variant="default" className="bg-primary hover:bg-primary/90">Login</Button>
+        </Link>
+      </div>
+    );
+  }
+
 
   if (error) {
     return (

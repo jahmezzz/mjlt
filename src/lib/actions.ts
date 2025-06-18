@@ -39,8 +39,61 @@ function dbToBooking(row: any): Booking {
   };
 }
 
+export async function createUserProfileInDbAction(
+  userData: { uid: string; email?: string | null; displayName?: string | null, fetchOnly?: boolean }
+) {
+  const { uid, email, displayName, fetchOnly } = userData;
+  console.log("Attempting to create/fetch profile in DB for Firebase UID:", uid);
 
-export async function createBookingAction(bookingData: BookingFormData, userId: string = "mockUserId") {
+  try {
+    // Check if user already exists
+    const checkUserSql = "SELECT * FROM users WHERE id = $1;";
+    const existingUserResult = await query(checkUserSql, [uid]);
+
+    if (existingUserResult.rows.length > 0) {
+      console.log("User profile already exists for UID:", uid);
+      return { success: true, profile: dbToUserProfile(existingUserResult.rows[0]), message: "User profile already exists." };
+    }
+    
+    if (fetchOnly) {
+         return { success: false, message: "User profile not found and fetchOnly is true." };
+    }
+
+    // If user does not exist, create them
+    // Use displayName for fullName, or part of email if displayName is null/empty
+    const fullName = displayName || email?.split('@')[0] || 'New User';
+    // Use email for contactDetails, or a placeholder if email is null
+    const contactDetails = email || 'Not specified';
+    // Placeholder for dateOfBirth - user should update this in their profile
+    const dateOfBirth = '1970-01-01'; // Default placeholder
+
+    const insertSql = `
+      INSERT INTO users (id, full_name, date_of_birth, contact_details, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING *;
+    `;
+    const values = [uid, fullName, dateOfBirth, contactDetails];
+    const result = await query(insertSql, values);
+
+    if (result.rows.length > 0) {
+      const newUserProfile = dbToUserProfile(result.rows[0]);
+      console.log("New user profile created successfully in DB:", newUserProfile);
+      return { success: true, profile: newUserProfile, message: "User profile created." };
+    } else {
+      console.error("User profile creation failed, no rows returned.");
+      return { success: false, message: "Failed to create user profile in DB." };
+    }
+  } catch (error) {
+    console.error("Error in createUserProfileInDbAction:", error);
+    return { success: false, message: `Database error: ${(error as Error).message}` };
+  }
+}
+
+
+export async function createBookingAction(bookingData: BookingFormData, userId?: string) {
+  if (!userId) {
+    return { success: false, message: "User ID is required to create a booking." };
+  }
   console.log("Attempting to create booking with data:", bookingData, "for user:", userId);
 
   const age = calculateAge(bookingData.dateOfBirth);
@@ -48,9 +101,6 @@ export async function createBookingAction(bookingData: BookingFormData, userId: 
   if (age < 18 && (!bookingData.guardianName || !bookingData.guardianContact)) {
     return { success: false, message: "Guardian details are required for passengers under 18." };
   }
-
-  // Ensure user exists before creating a booking, or handle this according to your app's logic
-  // For now, we assume userId is valid and references an existing user in the 'users' table.
 
   const sql = `
     INSERT INTO bookings (
@@ -62,25 +112,22 @@ export async function createBookingAction(bookingData: BookingFormData, userId: 
     ) RETURNING *;
   `;
 
-  // Ensure departureDate is in ISO format for TIMESTAMPTZ
   const departureDateTime = new Date(bookingData.departureDate).toISOString();
-  // Ensure dateOfBirth is in YYYY-MM-DD for DATE
   const passengerDobFormatted = new Date(bookingData.dateOfBirth).toISOString().split('T')[0];
-
 
   const values = [
     userId,
-    bookingData.fullName, // This is passenger_full_name for the booking
+    bookingData.fullName, 
     passengerDobFormatted,
-    bookingData.contactDetails, // This is passenger_contact_details
+    bookingData.contactDetails, 
     bookingData.guardianName || null,
     bookingData.guardianContact || null,
     bookingData.destination,
     departureDateTime,
     bookingData.preferredVehicle,
     bookingData.allergiesOrRequests || null,
-    true, // is_confirmed
-    age   // age_at_booking
+    true, 
+    age   
   ];
 
   try {
@@ -99,7 +146,10 @@ export async function createBookingAction(bookingData: BookingFormData, userId: 
   }
 }
 
-export async function getUserProfileAction(userId: string = "mockUserId") {
+export async function getUserProfileAction(userId?: string) {
+  if (!userId) {
+    return { success: false, message: "User ID is required to fetch profile." };
+  }
   console.log("Fetching profile for user:", userId);
   const sql = "SELECT * FROM users WHERE id = $1;";
   try {
@@ -108,19 +158,24 @@ export async function getUserProfileAction(userId: string = "mockUserId") {
       const userProfile = dbToUserProfile(result.rows[0]);
       return { success: true, profile: userProfile };
     }
+    // If profile not found, it might be a new Firebase user, try creating it.
+    // This path is more for direct fetching. Signup flow handles initial creation.
     return { success: false, message: "Profile not found." };
+
   } catch (error) {
     console.error("Error fetching user profile from DB:", error);
     return { success: false, message: `Database error: ${(error as Error).message}` };
   }
 }
 
-export async function updateUserProfileAction(userId: string = "mockUserId", profileData: Partial<UserProfileType>) {
+export async function updateUserProfileAction(userId: string | undefined, profileData: Partial<UserProfileType>) {
+   if (!userId) {
+    return { success: false, message: "User ID is required to update profile." };
+  }
   console.log("Updating profile for user:", userId, "with data:", profileData);
 
   const fieldsToUpdate: Partial<Record<keyof UserProfileType | string, any>> = {};
   if (profileData.fullName !== undefined) fieldsToUpdate.full_name = profileData.fullName;
-  // Ensure dateOfBirth is in YYYY-MM-DD for DATE type in DB
   if (profileData.dateOfBirth !== undefined) fieldsToUpdate.date_of_birth = new Date(profileData.dateOfBirth).toISOString().split('T')[0];
   if (profileData.contactDetails !== undefined) fieldsToUpdate.contact_details = profileData.contactDetails;
   if (profileData.preferredVehicleType !== undefined) fieldsToUpdate.preferred_vehicle_type = profileData.preferredVehicleType;
@@ -128,10 +183,12 @@ export async function updateUserProfileAction(userId: string = "mockUserId", pro
   if (profileData.preferredMusicGenre !== undefined) fieldsToUpdate.preferred_music_genre = profileData.preferredMusicGenre;
   
   if (Object.keys(fieldsToUpdate).length === 0) {
-    return { success: true, message: "No changes to update.", profile: (await getUserProfileAction(userId)).profile };
+    // Fetch current profile if no changes to avoid returning undefined
+    const currentProfileResult = await getUserProfileAction(userId);
+    return { success: true, message: "No changes to update.", profile: currentProfileResult.profile };
   }
 
-  fieldsToUpdate.updated_at = new Date(); // Explicitly set updated_at if not using DB trigger for it
+  fieldsToUpdate.updated_at = new Date(); 
 
   const setClauses = Object.keys(fieldsToUpdate)
     .map((key, index) => `"${key}" = $${index + 1}`)
@@ -154,7 +211,10 @@ export async function updateUserProfileAction(userId: string = "mockUserId", pro
   }
 }
 
-export async function getMyTripsAction(userId: string = "mockUserId") {
+export async function getMyTripsAction(userId?: string) {
+   if (!userId) {
+    return { success: false, message: "User ID is required to fetch trips." };
+  }
   console.log("Fetching trips for user:", userId);
   const sql = "SELECT * FROM bookings WHERE user_id = $1 AND is_confirmed = TRUE ORDER BY departure_date DESC;";
   let userBookings: Booking[] = [];
@@ -166,22 +226,7 @@ export async function getMyTripsAction(userId: string = "mockUserId") {
     console.error("Error fetching user trips from DB:", error);
     return { success: false, message: `Database error: ${(error as Error).message}` };
   }
-
-  // The mock past bookings are for the AI personalization demo and are kept separate for now.
-  // If these should also come from the DB, they'd need to be seeded or managed differently.
-  const mockPastBookingsForDemo: Partial<Booking>[] = [ // Made Partial<Booking> to match potential structure
-    { id: 'past_1', userId: 'mockUserId', destination: 'Hotel Alpha', departureDate: '2023-01-15T00:00:00.000Z', preferredVehicle: 'suv', fullName: 'James T. Kirk', isConfirmed: true, allergiesOrRequests: 'Likes window seat' },
-    { id: 'past_2', userId: 'mockUserId', destination: 'Conference Center', departureDate: '2023-02-20T00:00:00.000Z', preferredVehicle: 'sedan', fullName: 'James T. Kirk', isConfirmed: true, allergiesOrRequests: '' },
-    { id: 'past_3', userId: 'mockUserId', destination: 'Gala Event', departureDate: '2023-03-10T00:00:00.000Z', preferredVehicle: 'limousine', fullName: 'James T. Kirk', isConfirmed: true, allergiesOrRequests: 'Quiet ride preferred' },
-  ];
   
-  // Combine actual bookings with mocks if needed for demo purposes.
-  // Filtering to avoid duplicates if mocks overlap with actual trip IDs (unlikely with UUIDs but good practice).
-  const combinedBookings = [
-    ...userBookings,
-    ...mockPastBookingsForDemo.filter(b => !userBookings.find(ub => ub.id === b.id)) as Booking[] // Cast as Booking[]
-  ];
-  
-  return { success: true, bookings: combinedBookings };
+  return { success: true, bookings: userBookings };
 }
     
