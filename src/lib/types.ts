@@ -1,5 +1,7 @@
+
 export interface UserProfile {
-  id: string;
+  id: string; // This will be the database-generated UUID
+  firebaseUid: string; // The Firebase UID
   fullName: string;
   dateOfBirth: string; 
   contactDetails: string; 
@@ -23,8 +25,8 @@ export interface BookingFormData {
 }
 
 export interface Booking extends BookingFormData {
-  id: string;
-  userId: string; // Assuming a logged-in user context
+  id: string; // Booking's own UUID
+  userId: string; // This will be the users.id (UUID) from the users table
   isConfirmed: boolean;
   age?: number; // Calculated at time of booking or derived
 }
